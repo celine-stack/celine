@@ -1,46 +1,41 @@
+<?php
+// 1. Amakuru yo kwinjira muri Database
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "db_data";
 
-$host = "localhost";   // MySQL server
-$username = "root";        // MySQL username
-$pass = "";            // MySQL password
-$db = "db_data";   // MySQL database name
+// 2. Gufungura connection (Uburyo busanzwe - Procedural)
+$conn = mysqli_connect($servername, $username, $password, $dbname);
 
-// 2️⃣ Create a connection
-$conn =new mysqli($host, $username, $pass, $db);
-
-// 3️⃣ Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+// Kugenzura niba connection yagenze neza
+if (!$conn) {
+    die("Connection failed: " . mysqli_connect_error());
 }
 
-// 4️⃣ Read raw POST data (ESP is sending JSON)
-$data = file_get_contents("php://input");
+// 3. Kwakira JSON data ivuye kuri ESP32
+$json_data = file_get_contents("php://input");
+$data = json_decode($json_data, true);
 
-// 5️⃣ Decode JSON to PHP array
-$json = json_decode($data, true);
+// 4. Kureba niba amakuru yuzuye (Temperature na Humidity zihari)
+if (isset($data['temperature']) && isset($data['humidity'])) {
+    
+    $temp = $data['temperature'];
+    $hum = $data['humidity'];
 
-// 6️⃣ Validate JSON
-if (!$json || !isset($json['temp']) || !isset($json['hum'])) {
-    die("Invalid JSON data");
-}
+    // SQL query yo kwinjiza amakuru muri table sensor_data
+    $sql = "INSERT INTO sensor_data (temperature, humidity) VALUES ('$temp', '$hum')";
 
-// 7️⃣ Extract temperature and humidity values
-$temp = floatval($json['temp']);
-$hum  = floatval($json['hum']);
-
-// 8️⃣ Prepare SQL INSERT statement using placeholders
-$stmt = $conn->prepare("INSERT INTO sensor_data (TEMPERATURE, HUMIDITY) VALUES (?, ?)");
-
-// 9️⃣ Bind parameters: "dd" = two doubles (temperature, humidity)
-$stmt->bind_param("dd", $temp, $hum);
-
-// 🔟 Execute the statement
-if ($stmt->execute()) {
-    echo "OK";  // Send response back to ESP
+    // Gukoresha mysqli_query aho gukoresha ->query()
+    if (mysqli_query($conn, $sql)) {
+        echo "Amakuru yageze muri Database neza!";
+    } else {
+        echo "Ikibazo: " . mysqli_error($conn);
+    }
 } else {
-    echo "ERROR: " . $stmt->error;
+    echo "Nta makuru yabonetse! (No data received)";
 }
 
-// 1️⃣1️⃣ Close statement and connection
-$stmt->close();
-$conn->close();
+// 5. Gufunga connection
+mysqli_close($conn);
 ?>
